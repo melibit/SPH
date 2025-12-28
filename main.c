@@ -25,6 +25,7 @@ typedef struct Uniforms {
   float2 gravity;
   uint particleCount;
   uint hashTableSize;
+  float2 screenSize;
 } Uniforms;
 
 typedef struct Particle {
@@ -311,6 +312,13 @@ void Init(Context *context) {
 }
 
 void Update(Context *context) {
+  int w, h;
+  SDL_GetWindowSize(context->Window, &w, &h);
+  context->UniformValues.screenSize = (float2){
+      (float)w,
+      (float)h,
+  };
+
   context->UniformValues.deltaTime =
       SDL_min(context->deltaTime * TIME_CONSTANT, DT_MAX * TIME_CONSTANT);
   context->UniformValues.time += context->UniformValues.deltaTime;
@@ -489,13 +497,9 @@ void Render(SDL_GPUCommandBuffer *commandBuffer, Context *context) {
   SDL_BindGPUGraphicsPipeline(renderPass, context->ParticleRenderPipeline);
   SDL_BindGPUVertexStorageBuffers(renderPass, 0, &context->ParticleBufferRead,
                                   1);
-  int w, h;
-  SDL_GetWindowSize(context->Window, &w, &h);
-  float2 screenSize = {
-      (float)w,
-      (float)h,
-  };
-  SDL_PushGPUVertexUniformData(commandBuffer, 1, &screenSize, sizeof(float2));
+
+  SDL_PushGPUVertexUniformData(commandBuffer, 0, &context->UniformValues,
+                               sizeof(Uniforms));
 
   SDL_DrawGPUPrimitives(renderPass, NUM_PARTICLES, 1, 0, 0);
 

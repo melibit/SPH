@@ -15,10 +15,7 @@ void main(uint3 DTid : SV_DispatchThreadID) {
   if (i >= U.particleCount)
     return;
 
-  float2 position = particleInBuffer[i].position;
-  int2 cell = (int2)floor(position / U.smoothingRadius);
-
-  uint hash = HashCell(cell) % U.hashTableSize;
+  uint hash = HashPosition(particleInBuffer[i].position, U.smoothingRadius, U.hashTableSize);
 
   hashEntryOutBuffer[i].hash = hash;
   hashEntryOutBuffer[i].particleIndex = i;
