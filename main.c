@@ -418,13 +418,11 @@ void ComputeSpatialGrid(SDL_GPUCommandBuffer *commandBuffer, Context *context) {
   }
 }
 void ComputeSPH(SDL_GPUCommandBuffer *commandBuffer, Context *context) {
-  SDL_GPUStorageBufferReadWriteBinding particleWriteBinding = {
-      .buffer = context->ParticleBufferWrite,
-      .cycle = false,
-  };
-
-  SwapParticleBuffers(context);
   {
+    SDL_GPUStorageBufferReadWriteBinding particleWriteBinding = {
+        .buffer = context->ParticleBufferWrite,
+        .cycle = false,
+    };
     SDL_GPUComputePass *densityComputePass = SDL_BeginGPUComputePass(
         commandBuffer, NULL, 0, &particleWriteBinding, 1);
     SDL_BindGPUComputePipeline(densityComputePass, context->DensityPipeline);
@@ -435,7 +433,12 @@ void ComputeSPH(SDL_GPUCommandBuffer *commandBuffer, Context *context) {
     SDL_DispatchGPUCompute(densityComputePass, (NUM_PARTICLES + 63) / 64, 1, 1);
     SDL_EndGPUComputePass(densityComputePass);
   }
+  SwapParticleBuffers(context);
   {
+    SDL_GPUStorageBufferReadWriteBinding particleWriteBinding = {
+        .buffer = context->ParticleBufferWrite,
+        .cycle = false,
+    };
     SDL_GPUComputePass *pressureComputePass = SDL_BeginGPUComputePass(
         commandBuffer, NULL, 0, &particleWriteBinding, 1);
     SDL_BindGPUComputePipeline(pressureComputePass, context->PressurePipeline);
@@ -447,7 +450,12 @@ void ComputeSPH(SDL_GPUCommandBuffer *commandBuffer, Context *context) {
                            1);
     SDL_EndGPUComputePass(pressureComputePass);
   }
+  SwapParticleBuffers(context);
   {
+    SDL_GPUStorageBufferReadWriteBinding particleWriteBinding = {
+        .buffer = context->ParticleBufferWrite,
+        .cycle = false,
+    };
     SDL_GPUComputePass *forcesComputePass = SDL_BeginGPUComputePass(
         commandBuffer, NULL, 0, &particleWriteBinding, 1);
     SDL_BindGPUComputePipeline(forcesComputePass, context->ForcesPipeline);
@@ -460,6 +468,10 @@ void ComputeSPH(SDL_GPUCommandBuffer *commandBuffer, Context *context) {
   }
   SwapParticleBuffers(context);
   {
+    SDL_GPUStorageBufferReadWriteBinding particleWriteBinding = {
+        .buffer = context->ParticleBufferWrite,
+        .cycle = false,
+    };
     SDL_GPUComputePass *integrateComputePass = SDL_BeginGPUComputePass(
         commandBuffer, NULL, 0, &particleWriteBinding, 1);
     SDL_BindGPUComputePipeline(integrateComputePass,
