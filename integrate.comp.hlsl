@@ -19,16 +19,19 @@ void main(uint3 DTid : SV_DispatchThreadID) {
   
   p.position += U.deltaTime * p.velocity;
 
-  if (p.position.x < 0.2) {
-    p.position.x = 0.2;
+  if (p.position.x < 0.0) {
+    p.position.x = 0.0;
     p.velocity.x *= -0.5;
   }
-  if (p.position.x > 0.8) {
-    p.position.x = 0.8;
+  if (p.position.x > 1.0) {
+    p.position.x = 1.0;
     p.velocity.x *= -0.5;
   }
-  if (p.position.y < 0.2) {
-    p.position.y = 0.2;
+  if (p.position.y > 1.0) {
+    p.position.y = 1.0;
+    p.velocity.y *= -0.5;
+  }  if (p.position.y < 0.0) {
+    p.position.y = 0.0;
     p.velocity.y *= -0.5;
   }
 
