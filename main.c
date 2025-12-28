@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #define NUM_PARTICLES 16384
+#define HASHTABLE_SIZE 65537
 #define TIME_CONSTANT 5e-5
 #define DT_MAX 50
 
@@ -34,7 +35,7 @@ typedef struct Particle {
 } Particle;
 
 typedef struct HashEntry {
-  uint cellHash;
+  uint hash;
   uint particleIndex;
 } HashEntry;
 
@@ -54,8 +55,15 @@ typedef struct Context {
   SDL_GPUComputePipeline *ForcesPipeline;
   SDL_GPUComputePipeline *IntegratePipeline;
 
+  SDL_GPUComputePipeline *CellClearPipeline;
+  SDL_GPUComputePipeline *HashParticlePipeline;
+  SDL_GPUComputePipeline *HashSortPipeline;
+  SDL_GPUComputePipeline *CellBuildPipeline;
+
   SDL_GPUBuffer *ParticleBufferRead;
   SDL_GPUBuffer *ParticleBufferWrite;
+  SDL_GPUBuffer *CellRangeBuffer;
+  SDL_GPUBuffer *HashEntryBuffer;
 
   SDL_GPUTransferBuffer *ParticleUploadBuffer;
 
@@ -158,7 +166,7 @@ void Init(Context *context) {
                                         true, NULL);
 
   context->Window = SDL_CreateWindow(
-      "GPU", 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_FULLSCREEN);
+      "GPU", 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_MAXIMIZED);
 
   SDL_ClaimWindowForGPUDevice(context->Device, context->Window);
 
@@ -179,6 +187,22 @@ void Init(Context *context) {
   context->IntegratePipeline =
       InitComputePipeline(context, "integrate.comp", pipelineCreateInfo);
 
+  context->HashParticlePipeline =
+      InitComputePipeline(context, "hash-particles.comp", pipelineCreateInfo);
+
+  context->CellBuildPipeline =
+      InitComputePipeline(context, "cell-build.comp", pipelineCreateInfo);
+
+  pipelineCreateInfo.num_readonly_storage_buffers = 0;
+
+  context->CellClearPipeline =
+      InitComputePipeline(context, "cell-clear.comp", pipelineCreateInfo);
+
+  pipelineCreateInfo.threadcount_x = 1;
+
+  context->HashSortPipeline =
+      InitComputePipeline(context, "hash-sort.comp", pipelineCreateInfo);
+
   SDL_GPUBufferCreateInfo particleBufferCreateInfo = {
       .usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ |
                SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE |
@@ -191,6 +215,26 @@ void Init(Context *context) {
 
   context->ParticleBufferWrite =
       SDL_CreateGPUBuffer(context->Device, &particleBufferCreateInfo);
+
+  SDL_GPUBufferCreateInfo cellBufferCreateInfo = {
+      .usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ |
+               SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE |
+               SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+      .size = sizeof(CellRange) * HASHTABLE_SIZE,
+  };
+
+  context->CellRangeBuffer =
+      SDL_CreateGPUBuffer(context->Device, &cellBufferCreateInfo);
+
+  SDL_GPUBufferCreateInfo hashBufferCreateInfo = {
+      .usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ |
+               SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE |
+               SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+      .size = sizeof(CellRange) * HASHTABLE_SIZE,
+  };
+
+  context->HashEntryBuffer =
+      SDL_CreateGPUBuffer(context->Device, &hashBufferCreateInfo);
 
   SDL_GPUTransferBufferCreateInfo particleUploadCreateInfo = {
       .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
@@ -263,6 +307,7 @@ void Init(Context *context) {
   context->UniformValues.gasConstant = 10.0f;
   context->UniformValues.gravity = (float2){0.0f, -9.8f};
   context->UniformValues.particleCount = NUM_PARTICLES;
+  context->UniformValues.hashTableSize = HASHTABLE_SIZE;
 }
 
 void Update(Context *context) {
@@ -314,6 +359,56 @@ void SwapParticleBuffers(Context *context) {
   context->ParticleBufferWrite = tmp;
 }
 
+void ComputeSpatialGrid(SDL_GPUCommandBuffer *commandBuffer, Context *context) {
+  SDL_GPUStorageBufferReadWriteBinding cellWriteBinding = {
+      .buffer = context->CellRangeBuffer,
+      .cycle = false,
+  };
+  SDL_GPUStorageBufferReadWriteBinding hashWriteBinding = {
+      .buffer = context->HashEntryBuffer,
+      .cycle = false,
+  };
+  {
+    SDL_GPUComputePass *clearPass =
+        SDL_BeginGPUComputePass(commandBuffer, NULL, 0, &cellWriteBinding, 1);
+    SDL_BindGPUComputePipeline(clearPass, context->CellClearPipeline);
+    SDL_PushGPUComputeUniformData(commandBuffer, 0, &context->UniformValues,
+                                  sizeof(Uniforms));
+    SDL_DispatchGPUCompute(clearPass, (HASHTABLE_SIZE + 63) / 64, 1, 1);
+    SDL_EndGPUComputePass(clearPass);
+  }
+  {
+    SDL_GPUComputePass *hashPass =
+        SDL_BeginGPUComputePass(commandBuffer, NULL, 0, &hashWriteBinding, 1);
+    SDL_BindGPUComputePipeline(hashPass, context->HashParticlePipeline);
+    SDL_BindGPUComputeStorageBuffers(hashPass, 0, &context->ParticleBufferRead,
+                                     1);
+    SDL_PushGPUComputeUniformData(commandBuffer, 0, &context->UniformValues,
+                                  sizeof(Uniforms));
+    SDL_DispatchGPUCompute(hashPass, (NUM_PARTICLES + 63) / 64, 1, 1);
+    SDL_EndGPUComputePass(hashPass);
+  }
+  {
+    SDL_GPUComputePass *sortPass =
+        SDL_BeginGPUComputePass(commandBuffer, NULL, 0, &hashWriteBinding, 1);
+    SDL_BindGPUComputePipeline(sortPass, context->HashSortPipeline);
+    SDL_PushGPUComputeUniformData(commandBuffer, 0, &context->UniformValues,
+                                  sizeof(Uniforms));
+    SDL_DispatchGPUCompute(sortPass, 1, 1, 1);
+    SDL_EndGPUComputePass(sortPass);
+  }
+  {
+    SDL_GPUComputePass *buildPass =
+        SDL_BeginGPUComputePass(commandBuffer, NULL, 0, &cellWriteBinding, 1);
+    SDL_BindGPUComputePipeline(buildPass, context->CellBuildPipeline);
+    SDL_BindGPUComputeStorageBuffers(buildPass, 0, &context->HashEntryBuffer,
+                                     1);
+    SDL_PushGPUComputeUniformData(commandBuffer, 0, &context->UniformValues,
+                                  sizeof(Uniforms));
+    SDL_DispatchGPUCompute(buildPass, (NUM_PARTICLES + 63) / 64, 1, 1);
+    SDL_EndGPUComputePass(buildPass);
+  }
+}
 void ComputeSPH(SDL_GPUCommandBuffer *commandBuffer, Context *context) {
   SDL_GPUStorageBufferReadWriteBinding particleWriteBinding = {
       .buffer = context->ParticleBufferWrite,
@@ -410,6 +505,8 @@ void Render(SDL_GPUCommandBuffer *commandBuffer, Context *context) {
 void Bundle(Context *context) {
   SDL_GPUCommandBuffer *commandBuffer =
       SDL_AcquireGPUCommandBuffer(context->Device);
+
+  ComputeSpatialGrid(commandBuffer, context);
 
   ComputeSPH(commandBuffer, context);
 
