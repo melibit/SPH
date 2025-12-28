@@ -552,8 +552,10 @@ int main(int argc, char **argv) {
   Init(&context);
 
   for (size_t i = 0; i < sizeof(context.particles) / sizeof(Particle); i++) {
-    context.particles[i].position.x = ((float)rand() / RAND_MAX) / 16 + 0.5;
-    context.particles[i].position.y = ((float)rand() / RAND_MAX) / 2 + 1.5;
+    context.particles[i].position.x =
+        ((float)rand() / RAND_MAX) / 16 + 0.5 - 1 / 32.;
+    context.particles[i].position.y =
+        ((float)rand() / RAND_MAX) / 16 + 0.5 - 1 / 32.;
     context.particles[i].velocity.y = -(float)(rand()) / RAND_MAX;
   }
 
