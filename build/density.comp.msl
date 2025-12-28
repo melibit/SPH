@@ -1,0 +1,78 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct Particle
+{
+    float2 position;
+    float2 velocity;
+    float density;
+    float pressure;
+};
+
+struct type_RWStructuredBuffer_Particle
+{
+    Particle _m0[1];
+};
+
+struct type_StructuredBuffer_Particle
+{
+    Particle _m0[1];
+};
+
+struct type_ConstantBuffer_Uniforms
+{
+    float time;
+    float deltaTime;
+    float smoothingRadius;
+    float particleMass;
+    float restDensity;
+    float gasConstant;
+    float2 gravity;
+    uint particleCount;
+    uint hashTableSize;
+};
+
+kernel void main0(constant type_ConstantBuffer_Uniforms& U [[buffer(0)]], device type_RWStructuredBuffer_Particle& particleOutBuffer [[buffer(1)]], const device type_StructuredBuffer_Particle& particleInBuffer [[buffer(2)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
+{
+    do
+    {
+        if (gl_GlobalInvocationID.x >= U.particleCount)
+        {
+            break;
+        }
+        float _59;
+        _59 = 0.0;
+        float _60;
+        for (uint _62 = 0u; _62 < U.particleCount; _59 = _60, _62++)
+        {
+            float _70 = length(particleInBuffer._m0[gl_GlobalInvocationID.x].position - particleInBuffer._m0[_62].position);
+            float _92;
+            do
+            {
+                bool _81;
+                if (_70 >= 0.0)
+                {
+                    _81 = _70 <= U.smoothingRadius;
+                }
+                else
+                {
+                    _81 = false;
+                }
+                if (_81)
+                {
+                    float _86 = (U.smoothingRadius * U.smoothingRadius) - (_70 * _70);
+                    _92 = (((1.56668174266815185546875 / powr(U.smoothingRadius, 9.0)) * _86) * _86) * _86;
+                    break;
+                }
+                _92 = 0.0;
+                break;
+            } while(false);
+            _60 = _59 + (U.particleMass * _92);
+        }
+        particleOutBuffer._m0[gl_GlobalInvocationID.x] = Particle{ particleInBuffer._m0[gl_GlobalInvocationID.x].position, particleInBuffer._m0[gl_GlobalInvocationID.x].velocity, precise::max(_59, U.restDensity * 0.100000001490116119384765625), particleInBuffer._m0[gl_GlobalInvocationID.x].pressure };
+        break;
+    } while(false);
+}
+

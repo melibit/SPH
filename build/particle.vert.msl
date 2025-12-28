@@ -1,0 +1,39 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct Particle
+{
+    float2 position;
+    float2 velocity;
+    float density;
+    float pressure;
+};
+
+struct type_StructuredBuffer_Particle
+{
+    Particle _m0[1];
+};
+
+struct type_Uniform
+{
+    float2 screenSize;
+};
+
+struct main0_out
+{
+    float out_var_TEXCOORD0 [[user(locn0)]];
+    float4 gl_Position [[position]];
+    float gl_PointSize [[point_size]];
+};
+
+vertex main0_out main0(const device type_StructuredBuffer_Particle& particleBuffer [[buffer(1)]], uint gl_VertexIndex [[vertex_id]])
+{
+    main0_out out = {};
+    out.gl_Position = float4((particleBuffer._m0[gl_VertexIndex].position * 2.0) - float2(1.0), 0.0, 1.0);
+    out.out_var_TEXCOORD0 = particleBuffer._m0[gl_VertexIndex].density;
+    out.gl_PointSize = 2.0;
+    return out;
+}
+

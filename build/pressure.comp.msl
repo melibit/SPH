@@ -1,0 +1,49 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct Particle
+{
+    float2 position;
+    float2 velocity;
+    float density;
+    float pressure;
+};
+
+struct type_RWStructuredBuffer_Particle
+{
+    Particle _m0[1];
+};
+
+struct type_StructuredBuffer_Particle
+{
+    Particle _m0[1];
+};
+
+struct type_ConstantBuffer_Uniforms
+{
+    float time;
+    float deltaTime;
+    float smoothingRadius;
+    float particleMass;
+    float restDensity;
+    float gasConstant;
+    float2 gravity;
+    uint particleCount;
+    uint hashTableSize;
+};
+
+kernel void main0(constant type_ConstantBuffer_Uniforms& U [[buffer(0)]], device type_RWStructuredBuffer_Particle& particleOutBuffer [[buffer(1)]], const device type_StructuredBuffer_Particle& particleInBuffer [[buffer(2)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
+{
+    do
+    {
+        if (gl_GlobalInvocationID.x >= U.particleCount)
+        {
+            break;
+        }
+        particleOutBuffer._m0[gl_GlobalInvocationID.x] = Particle{ particleInBuffer._m0[gl_GlobalInvocationID.x].position, particleInBuffer._m0[gl_GlobalInvocationID.x].velocity, particleInBuffer._m0[gl_GlobalInvocationID.x].density, U.gasConstant * (particleInBuffer._m0[gl_GlobalInvocationID.x].density - U.restDensity) };
+        break;
+    } while(false);
+}
+

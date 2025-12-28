@@ -1,0 +1,2 @@
+-Wall
+-Wno-macro-redefined
