@@ -231,7 +231,7 @@ void Init(Context *context) {
       .usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ |
                SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE |
                SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
-      .size = sizeof(CellRange) * HASHTABLE_SIZE,
+      .size = sizeof(Particle) * NUM_PARTICLES,
   };
 
   context->HashEntryBuffer =
