@@ -1,3 +1,10 @@
+export MTL_DEBUG_LAYER=1
+export MTL_SHADER_VALIDATION=1
+export MTL_HUD_ENABLED=1
+export MTL_DEBUG_LAYER_VALIDATE_LOAD_ACTIONS=1
+export MTL_DEBUG_LAYER_VALIDATE_STORE_ACTIONS=1
+export MTL_DEBUG_LAYER_VALIDATE_UNRETAINED_RESOURCES=0x4
+export MTL_SHADER_VALIDATION_DUMP_PIPELINES=1 
+
 make all 
 xcrun xctrace record --template "Metal System Trace" --launch ./build/GPU
-make clean
