@@ -1,5 +1,8 @@
 all: main shaders 
 
+debug:
+	./debug.sh 
+
 run:
 	./run.sh
 
@@ -15,3 +18,4 @@ shaders: ./*
 
 clean:
 	rm -rf build
+	rm -r *.trace
